@@ -1,0 +1,19 @@
+# Build output
+/dist/
+/bpbridge.exe
+/bpbridge
+
+# Local development secrets and state
+.env
+*.token.json
+*.credentials.json
+/config.toml
+/cache/
+
+# Test/editor artifacts
+*.out
+*.test
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

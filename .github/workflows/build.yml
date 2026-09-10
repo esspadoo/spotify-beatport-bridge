@@ -1,0 +1,53 @@
+name: test-and-build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test ./...
+      - run: go vet ./...
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = "0"
+          $env:GOOS = "windows"
+          $env:GOARCH = "${{ matrix.arch }}"
+          $commit = "${{ github.sha }}".Substring(0, 7)
+          New-Item -ItemType Directory -Force package | Out-Null
+          go build -trimpath -ldflags "-s -w -X github.com/bpbridge/bpbridge/internal/cli.Version=${{ github.ref_name }} -X github.com/bpbridge/bpbridge/internal/cli.Commit=$commit" -o "package/bpbridge.exe" ./cmd/bpbridge
+          Copy-Item README.md,LICENSE,.env.example package/
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path "package/*" -DestinationPath "bpbridge-windows-${{ matrix.arch }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bpbridge-windows-${{ matrix.arch }}
+          path: bpbridge-windows-${{ matrix.arch }}.zip
